@@ -51,21 +51,21 @@ Large buildings and campuses (such as universities, corporate offices, hospitals
 ```mermaid
 flowchart TD
     subgraph Ingestion ["1. Universal Ingestion Layer"]
-        CSV[Utility Bills & Smart Meter CSVs] --> Normalizer[Data Normalizer & Profiler]
-        IoT[BMS & Weather Telemetry] --> Normalizer
+        CSV["Utility Bills & Smart Meter CSVs"] --> Normalizer["Data Normalizer & Profiler"]
+        IoT["BMS & Weather Telemetry"] --> Normalizer
     end
 
     subgraph Core ["2. AI & Optimization Engine (FastAPI)"]
-        Normalizer --> Profiler[Campus Energy Profile (L1/L2/L3)]
-        Profiler --> Forecast[AI Forecasting & Anomaly Engine<br/>• Demand Prediction<br/>• Solar PV Optics<br/>• Baseload Anomaly Detection]
-        Forecast --> Solver[HiGHS Linear Programming Solver<br/>• Battery Dispatch<br/>• Flexible Load Shifter<br/>• ToU Tariff Arbitrage]
+        Normalizer --> Profiler["Campus Energy Profile (L1/L2/L3)"]
+        Profiler --> Forecast["AI Forecasting & Anomaly Engine<br/>• Demand Prediction<br/>• Solar PV Optics<br/>• Baseload Anomaly Detection"]
+        Forecast --> Solver["HiGHS Linear Programming Solver<br/>• Battery Dispatch<br/>• Flexible Load Shifter<br/>• ToU Tariff Arbitrage"]
     end
 
     subgraph UI ["3. Interactive Dashboard (React 19 + Tailwind)"]
-        Solver --> Dash[Executive KPI Dashboard]
-        Solver --> Twin[Campus Digital Twin & Submetering]
-        Solver --> Sim[What-If Scenario Simulator]
-        Solver --> Reports[ESG & Carbon Offset Audit]
+        Solver --> Dash["Executive KPI Dashboard"]
+        Solver --> Twin["Campus Digital Twin & Submetering"]
+        Solver --> Sim["What-If Scenario Simulator"]
+        Solver --> Reports["ESG & Carbon Offset Audit"]
     end
 ```
 
