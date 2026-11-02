@@ -42,6 +42,15 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
             time_col = c
             break
 
+    # Identify Building / Submeter Column early for accurate multi-meter deduplication
+    building_col = None
+    for c in cols:
+        if c == time_col:
+            continue
+        if any(k in c for k in ["building_id", "building", "submeter", "meter_id", "facility_zone", "zone"]):
+            building_col = c
+            break
+
     total_records = len(df)
     duplicate_count = 0
     interval_minutes: Optional[int] = None
@@ -56,10 +65,11 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
             parsed_times = parsed_times[valid_time_mask]
 
         df['_dt'] = parsed_times
-        duplicate_count = int(df.duplicated(subset=['_dt']).sum())
+        dedup_subset = ['_dt', building_col] if building_col else ['_dt']
+        duplicate_count = int(df.duplicated(subset=dedup_subset).sum())
         if duplicate_count > 0:
-            data_quality_notes.append(f"Deduplicated {duplicate_count} records sharing identical timestamps.")
-            df = df.drop_duplicates(subset=['_dt']).copy()
+            data_quality_notes.append(f"Deduplicated {duplicate_count} records sharing identical timestamps{' and submeter IDs' if building_col else ''}.")
+            df = df.drop_duplicates(subset=dedup_subset).copy()
 
         df = df.sort_values(by='_dt').reset_index(drop=True)
 
@@ -67,6 +77,11 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
             diffs = df['_dt'].diff().dropna()
             median_delta_sec = diffs.dt.total_seconds().median()
             interval_minutes = int(round(median_delta_sec / 60.0))
+            if interval_minutes > 0:
+                gap_threshold = median_delta_sec * 1.8
+                gap_count = int((diffs.dt.total_seconds() > gap_threshold).sum())
+                if gap_count > 0:
+                    data_quality_notes.append(f"Identified {gap_count} timestamp gap(s) exceeding normal {interval_minutes}-min interval cadence.")
 
     # 2. Identify Demand / Power Column & Distinguish kW vs kWh
     demand_col = None
@@ -122,14 +137,9 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
             is_solar_energy_kwh = ("kwh" in c)
             break
 
-    # 4. Identify Building / Submeter Column
-    building_col = None
-    for c in cols:
-        if c in [time_col, demand_col, solar_col, '_dt']:
-            continue
-        if any(k in c for k in ["building_id", "building", "submeter", "meter_id", "facility_zone", "zone"]):
-            building_col = c
-            break
+    # 4. Building / Submeter Column already identified at top for deduplication
+    if building_col in [time_col, demand_col, solar_col, '_dt']:
+        building_col = None
 
     # Calculate dt in hours
     if interval_minutes and interval_minutes > 0:
@@ -192,8 +202,45 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
     else:
         date_range = f"Chronological export of {len(df)} logged intervals"
 
+    # Detect sub-24h duration
+    elapsed_hours = len(df) * dt_hours
+    is_subdaily_estimate = False
+    if '_dt' in df.columns and len(df) > 1:
+        span_hours = (df['_dt'].iloc[-1] - df['_dt'].iloc[0]).total_seconds() / 3600.0
+        if span_hours < 23.0:
+            is_subdaily_estimate = True
+            data_quality_notes.append(
+                f"Sub-24h record span detected ({span_hours:.1f} hours). 24-hour diurnal profile estimated via cyclical interpolation."
+            )
+    elif len(df) < 24:
+        is_subdaily_estimate = True
+        data_quality_notes.append(
+            f"Sub-24h dataset detected ({len(df)} records). 24-hour diurnal profile estimated via interpolation."
+        )
+
     # Reconstruct 24-Hour Diurnal Hourly Profile
-    if '_dt' in df.columns and len(df) >= 24:
+    has_submeters_in_df = bool(building_col and len(df[building_col].dropna().unique()) > 1)
+
+    if has_submeters_in_df and '_dt' in df.columns:
+        ts_demand = df.groupby('_dt').apply(lambda g: demand_kw_series.loc[g.index].sum())
+        ts_df = pd.DataFrame({'_dt': ts_demand.index, 'demand': ts_demand.values})
+        ts_df['hour_of_day'] = ts_df['_dt'].dt.hour
+        hourly_means = ts_df.groupby('hour_of_day')['demand'].mean().to_dict()
+        if len(ts_df) >= 24:
+            chunks_demand = [round(float(hourly_means.get(h, float(ts_demand.mean()))), 1) for h in range(24)]
+        else:
+            interp_vals = np.interp(np.linspace(0, len(ts_demand)-1, 24), np.arange(len(ts_demand)), ts_demand.values)
+            chunks_demand = [round(float(x), 1) for x in interp_vals]
+        
+        if has_solar:
+            ts_solar = df.groupby('_dt').apply(lambda g: solar_kw_series.loc[g.index].sum())
+            ts_solar_df = pd.DataFrame({'_dt': ts_solar.index, 'solar': ts_solar.values})
+            ts_solar_df['hour_of_day'] = ts_solar_df['_dt'].dt.hour
+            hourly_solar_means = ts_solar_df.groupby('hour_of_day')['solar'].mean().to_dict()
+            chunks_solar = [round(float(hourly_solar_means.get(h, 0.0)), 1) for h in range(24)]
+        else:
+            chunks_solar = [0.0] * 24
+    elif '_dt' in df.columns and len(df) >= 24:
         df['hour_of_day'] = df['_dt'].dt.hour
         hourly_demand_means = df.groupby('hour_of_day').apply(lambda g: demand_kw_series.loc[g.index].mean()).to_dict()
         chunks_demand = [round(float(hourly_demand_means.get(h, avg_demand_kw)), 1) for h in range(24)]
@@ -265,7 +312,7 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
         # Default single aggregate building
         parsed_buildings.append(BuildingLoad(
             id="bld-aggregate-main",
-            name="Main Facility Aggregate Demand",
+            name="Aggregate Main Facility Meter (Single Submeter Telemetry)",
             category="Facility Main Meter",
             current_load_kw=round(chunks_demand[13] if len(chunks_demand) > 13 else avg_demand_kw, 1),
             base_load_kw=round(min(chunks_demand) if chunks_demand else 0.0, 1),
@@ -275,6 +322,7 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
             operational_status="Active Telemetry",
             occupancy_percent=85
         ))
+        data_quality_notes.append("Single facility aggregate meter detected; submetering breakdown not present in dataset.")
 
     solar_peak = max(chunks_solar) if chunks_solar else 0.0
     solar_capacity_kw = round(solar_peak * 1.05, 1) if has_solar else 0.0
@@ -294,6 +342,7 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
         interval_minutes=interval_minutes,
         total_consumption_kwh=round(total_consumption_kwh, 1),
         peak_recorded_demand_kw=round(peak_demand_kw, 1),
+        avg_demand_kw=round(avg_demand_kw, 1),
         has_solar_in_csv=has_solar,
         total_solar_kwh=round(total_solar_kwh, 1),
         estimated_bill_inr=estimated_bill_inr,
@@ -303,6 +352,7 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
         data_quality_notes=data_quality_notes,
         missing_records_count=missing_count,
         duplicate_records_count=duplicate_count,
+        is_subdaily_estimate=is_subdaily_estimate,
         recommendation_summary=recom_text
     )
 
@@ -312,7 +362,9 @@ def parse_energy_csv(file_bytes: bytes, filename: str) -> Tuple[CSVUploadSummary
         "solar_capacity_kw": solar_capacity_kw,
         "total_consumption": total_consumption_kwh,
         "peak_demand": peak_demand_kw,
+        "avg_demand_kw": avg_demand_kw,
         "has_solar": has_solar,
+        "is_subdaily_estimate": is_subdaily_estimate,
         "buildings": parsed_buildings,
         "columns_detected": raw_cols
     }

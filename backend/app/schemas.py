@@ -76,7 +76,7 @@ class FacilityConfig(BaseModel):
     battery_capacity_kwh: float = Field(default=1200.0, ge=0.0)
     battery_max_power_kw: float = Field(default=800.0, ge=0.0)
     battery_min_soc: float = Field(default=0.20, ge=0.0, le=1.0)  # 20% reserve
-    battery_max_soc: float = Field(default=0.95, ge=0.0, le=1.0)  # 95% protection
+    battery_max_soc: float = Field(default=0.90, ge=0.0, le=1.0)  # 90% protection
     battery_initial_soc: float = Field(default=0.50, ge=0.0, le=1.0) # 50% start of day
     battery_target_end_soc: float = Field(default=0.50, ge=0.0, le=1.0) # neutral daily cycle
     battery_roundtrip_efficiency: float = Field(default=0.90, gt=0.0, le=1.0)
@@ -244,6 +244,7 @@ class CSVUploadSummary(BaseModel):
     interval_minutes: Optional[int] = None
     total_consumption_kwh: float
     peak_recorded_demand_kw: float
+    avg_demand_kw: Optional[float] = 0.0
     has_solar_in_csv: bool
     total_solar_kwh: Optional[float] = 0.0
     estimated_bill_inr: float
@@ -253,4 +254,5 @@ class CSVUploadSummary(BaseModel):
     data_quality_notes: List[str] = Field(default_factory=list)
     missing_records_count: int = 0
     duplicate_records_count: int = 0
+    is_subdaily_estimate: bool = False
     recommendation_summary: str

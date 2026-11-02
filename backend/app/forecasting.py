@@ -81,6 +81,13 @@ def run_ai_forecast(
     eval_mae = round(float(mean_absolute_error(y_test, y_test_pred)), 2)
     eval_rmse = round(float(root_mean_squared_error(y_test, y_test_pred)), 2)
 
+    # Calculate MAPE strictly on positive actual values (actual >= 1.0 kW to avoid division by zero)
+    valid_mask = y_test >= 1.0
+    if np.any(valid_mask):
+        eval_mape = round(float(np.mean(np.abs((y_test[valid_mask] - y_test_pred[valid_mask]) / y_test[valid_mask])) * 100.0), 2)
+    else:
+        eval_mape = 0.0
+
     X_forecast = []
     for h in range(24):
         hour_one_hot = [1.0 if h == i else 0.0 for i in range(24)]
@@ -197,6 +204,7 @@ def run_ai_forecast(
             "r2_score_demand": eval_r2,
             "mae_kw": eval_mae,
             "rmse_kw": eval_rmse,
+            "mape_percent": eval_mape,
             "training_samples": int(train_hours * 0.8),
             "test_samples_evaluated": int(train_hours * 0.2),
             "model_validation": "Held-Out Temporal Split (80/20 Train/Test)"

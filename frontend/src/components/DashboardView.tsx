@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Building,
   Factory,
   GraduationCap,
@@ -144,6 +145,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wide">
                 {level === 'level_1_basic' ? 'Level 1: Basic (Bill/CSV)' : level === 'level_2_solar' ? 'Level 2: Solar PV' : 'Level 3: Microgrid'}
               </span>
+              {activeDataset?.is_subdaily_estimate && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Sub-24h Dataset (Diurnal Profile Estimated)
+                </span>
+              )}
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Nexus<span className="text-emerald-400">IQ</span> Energy Management & Optimization

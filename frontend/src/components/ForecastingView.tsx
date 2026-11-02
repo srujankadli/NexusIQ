@@ -71,12 +71,23 @@ export const ForecastingView: React.FC<ForecastingViewProps> = ({ forecastData, 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
               Machine Learning Demand & Sandia PV Model
             </span>
-            <span className="text-xs text-slate-400">R² Score: {metadata?.r2_score_demand !== undefined ? metadata.r2_score_demand : '---'}</span>
+            <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+              R²: <strong className="text-blue-400">{metadata?.r2_score_demand ?? '---'}</strong>
+            </span>
+            <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+              MAE: <strong className="text-emerald-400">{metadata?.mae_kw !== undefined ? `${metadata.mae_kw} kW` : '---'}</strong>
+            </span>
+            <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+              RMSE: <strong className="text-purple-400">{metadata?.rmse_kw !== undefined ? `${metadata.rmse_kw} kW` : '---'}</strong>
+            </span>
+            <span className="text-xs text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+              MAPE: <strong className="text-amber-400">{metadata?.mape_percent !== undefined ? `${metadata.mape_percent}%` : '---'}</strong>
+            </span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">
             AI Demand Prediction & Solar Generation Modeling

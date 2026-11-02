@@ -83,10 +83,12 @@ export const DigitalTwinView: React.FC<DigitalTwinViewProps> = ({
             <span className="text-xs text-slate-400">High-Resolution Physical Model</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-white">
-            NHCE Multi-Building Energy Flow & Sub-Meter Twin
+            {buildings.length === 1 ? 'Facility Energy Flow & Aggregate Meter Twin' : 'NHCE Multi-Building Energy Flow & Sub-Meter Twin'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            Simulates real-time energy flow dynamics across substation transformers, rooftop solar arrays, BESS storage, and 5 campus building clusters.
+            {buildings.length === 1
+              ? 'Simulates aggregate facility power dynamics directly from active ingested meter telemetry.'
+              : 'Simulates real-time energy flow dynamics across substation transformers, rooftop solar arrays, BESS storage, and 5 campus building clusters.'}
           </p>
         </div>
 

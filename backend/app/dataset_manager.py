@@ -33,7 +33,8 @@ class ActiveDataset:
         battery_max_power_kw: float = 800.0,
         has_submeters: bool = False,
         buildings: Optional[List[BuildingLoad]] = None,
-        inferred_level: DeploymentLevel = "level_3_campus"
+        inferred_level: DeploymentLevel = "level_3_campus",
+        is_subdaily_estimate: bool = False
     ):
         self.source_type = source_type # "demo" | "uploaded"
         self.filename = filename
@@ -49,6 +50,7 @@ class ActiveDataset:
         self.total_consumption_kwh = total_consumption_kwh
         self.peak_demand_kw = peak_demand_kw
         self.avg_demand_kw = avg_demand_kw
+        self.is_subdaily_estimate = is_subdaily_estimate
         self.has_solar = has_solar
         self.solar_installed_capacity_kw = solar_installed_capacity_kw
         
@@ -90,7 +92,8 @@ class ActiveDataset:
             "battery_capacity_kwh": round(self.battery_capacity_kwh, 1),
             "battery_max_power_kw": round(self.battery_max_power_kw, 1),
             "has_submeters": self.has_submeters,
-            "inferred_level": self.inferred_level
+            "inferred_level": self.inferred_level,
+            "is_subdaily_estimate": self.is_subdaily_estimate
         }
 
 class DatasetManager:
@@ -174,7 +177,7 @@ class DatasetManager:
             demand_24h=demand_24h,
             total_consumption_kwh=summary.total_consumption_kwh,
             peak_demand_kw=summary.peak_recorded_demand_kw,
-            avg_demand_kw=summary.total_consumption_kwh / max(1.0, float(summary.total_records)),
+            avg_demand_kw=summary.avg_demand_kw if (summary.avg_demand_kw and summary.avg_demand_kw > 0) else float(parsed_data.get("avg_demand_kw", summary.total_consumption_kwh / max(1.0, float(len(demand_24h))))),
             has_solar=has_solar,
             solar_installed_capacity_kw=solar_cap,
             solar_24h=solar_24h,
@@ -184,7 +187,8 @@ class DatasetManager:
             battery_max_power_kw=0.0,
             has_submeters=has_submeters,
             buildings=buildings,
-            inferred_level=summary.inferred_level
+            inferred_level=summary.inferred_level,
+            is_subdaily_estimate=summary.is_subdaily_estimate
         )
         return self.active
 

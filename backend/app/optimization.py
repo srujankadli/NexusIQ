@@ -360,7 +360,7 @@ def run_energy_optimization(
         f"Optimized Cost: INR {total_cost_optimized_inr:.2f} (Energy: {optimized_energy_cost_inr:.2f}, Demand: {optimized_demand_charge_inr:.2f}, Deg: {battery_degradation_cost_inr:.2f})\n"
         f"Net Savings: INR {cost_savings_inr:.2f} ({cost_savings_pct:.2f}%) | Peak Shaved: {peak_baseline_grid_kw - peak_opt_grid_kw:.1f} kW"
     )
-    cost_savings_pct = (cost_savings / total_baseline_cost * 100) if total_baseline_cost > 0 else 0.0
+    cost_savings_pct = round((cost_savings_inr / total_cost_baseline_inr * 100) if total_cost_baseline_inr > 0 else 0.0, 1)
     grid_reduction_kwh = max(0.0, total_baseline_grid_kwh - total_opt_grid_kwh)
     co2_avoided_tons = max(0.0, (baseline_co2_kg - opt_co2_kg) / 1000.0)
     peak_shaved_kw = max(0.0, peak_baseline_grid_kw - peak_opt_grid_kw)

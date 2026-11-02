@@ -105,6 +105,7 @@ export interface ForecastResponse {
     r2_score_demand: number;
     mae_kw: number;
     rmse_kw?: number;
+    mape_percent?: number;
     training_samples?: number;
     test_samples_evaluated?: number;
     model_validation?: string;
@@ -197,6 +198,7 @@ export interface ActiveDatasetStatus {
   battery_max_power_kw: number;
   has_submeters: boolean;
   inferred_level: DeploymentLevel;
+  is_subdaily_estimate?: boolean;
 }
 
 export interface LiveDashboardResponse {
@@ -260,6 +262,7 @@ export interface CSVUploadSummary {
   interval_minutes?: number;
   total_consumption_kwh: number;
   peak_recorded_demand_kw: number;
+  avg_demand_kw?: number;
   has_solar_in_csv: boolean;
   total_solar_kwh: number;
   estimated_bill_inr: number;
@@ -269,5 +272,6 @@ export interface CSVUploadSummary {
   data_quality_notes?: string[];
   missing_records_count?: number;
   duplicate_records_count?: number;
+  is_subdaily_estimate?: boolean;
   recommendation_summary: string;
 }
