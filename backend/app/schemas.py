@@ -211,6 +211,7 @@ class OptimizationResponse(BaseModel):
     peak_demand_shaved_kw: float
     recommendations: List[OptimizationRecommendation]
     computation_time_ms: float
+    power_balance_max_error_kw: float = Field(default=0.0, description="Full precision solver power balance equality error (kW)")
 
 class WhatIfRequest(BaseModel):
     solar_capacity_multiplier: float = Field(default=1.0, ge=0.0, le=3.0)

@@ -68,44 +68,44 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       Baseline: 100,
       Optimized: optimizationData && optimizationData.total_cost_baseline_inr > 0
         ? Number(((optimizationData.total_cost_optimized_inr / optimizationData.total_cost_baseline_inr) * 100).toFixed(1))
-        : 75.0,
+        : 98.1,
       baselineLabel: optimizationData ? `₹${optimizationData.total_cost_baseline_inr.toLocaleString()}` : '₹541,457',
-      optimizedLabel: optimizationData ? `₹${optimizationData.total_cost_optimized_inr.toLocaleString()}` : '₹438,200',
+      optimizedLabel: optimizationData ? `₹${optimizationData.total_cost_optimized_inr.toLocaleString()}` : '₹531,215',
       savingLabel: optimizationData
         ? `₹${optimizationData.cost_savings_inr.toLocaleString()} saved (-${optimizationData.cost_savings_percent}%)`
-        : '₹103,257 saved (-19.1%)',
+        : '₹10,243 saved (-1.9%)',
     },
     {
       category: 'Grid Import',
       Baseline: 100,
       Optimized: optimizationData && optimizationData.metrics_summary[1]?.baseline_value > 0
         ? Number(((optimizationData.metrics_summary[1].optimized_value / optimizationData.metrics_summary[1].baseline_value) * 100).toFixed(1))
-        : 54.2,
+        : 96.6,
       baselineLabel: optimizationData && optimizationData.metrics_summary[1]
         ? `${optimizationData.metrics_summary[1].baseline_value.toLocaleString()} kWh`
         : '36,500 kWh',
       optimizedLabel: optimizationData && optimizationData.metrics_summary[1]
         ? `${optimizationData.metrics_summary[1].optimized_value.toLocaleString()} kWh`
-        : '19,800 kWh',
+        : '35,265 kWh',
       savingLabel: optimizationData
         ? `${optimizationData.grid_reduction_kwh.toLocaleString()} kWh displaced`
-        : '16,700 kWh displaced',
+        : '1,235 kWh displaced',
     },
     {
       category: 'CO2 Emissions',
       Baseline: 100,
       Optimized: optimizationData && optimizationData.metrics_summary[3]?.baseline_value > 0
         ? Number(((optimizationData.metrics_summary[3].optimized_value / optimizationData.metrics_summary[3].baseline_value) * 100).toFixed(1))
-        : 57.1,
+        : 96.6,
       baselineLabel: optimizationData && optimizationData.metrics_summary[3]
         ? `${optimizationData.metrics_summary[3].baseline_value.toFixed(1)} tons`
         : '26.3 tons',
       optimizedLabel: optimizationData && optimizationData.metrics_summary[3]
         ? `${optimizationData.metrics_summary[3].optimized_value.toFixed(1)} tons`
-        : '14.3 tons',
+        : '25.4 tons',
       savingLabel: optimizationData
         ? `${optimizationData.co2_avoided_tons.toFixed(1)} tons avoided`
-        : '12.0 tons avoided',
+        : '0.9 tons avoided',
     },
   ];
 
@@ -519,7 +519,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">Expected Saving</span>
                 <span className="text-emerald-400 font-bold text-sm">
-                  {optimizationData ? `₹${optimizationData.cost_savings_inr.toLocaleString()}/day` : '₹2,800/day'}
+                  {optimizationData ? `₹${optimizationData.cost_savings_inr.toLocaleString()}/day` : '₹10,243/day'}
                 </span>
               </div>
               <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">

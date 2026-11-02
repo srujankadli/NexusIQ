@@ -284,8 +284,11 @@ def run_energy_optimization(
         soc_series = [round(config.battery_initial_soc * 100, 1)] * T
         status_msg = f"Optimization fallback to baseline (solver status: {res.status})"
         logger.warning(f"Optimization solver did not find optimal solution. Status={res.status}, msg={res.message if hasattr(res, 'message') else 'N/A'}")
+        power_balance_max_error_kw = 0.0
     else:
         x = res.x
+        # Exact full-precision power balance verification across all 24 equality constraints:
+        power_balance_max_error_kw = float(np.max(np.abs(A_mat[:T].dot(x) - lhs[:T])))
         opt_grid_kw = np.round(np.maximum(0.0, x[idx_grid : idx_grid + T]), 1)
         opt_solar_kw = np.round(np.maximum(0.0, x[idx_solar : idx_solar + T]), 1)
         opt_ch_kw = np.round(np.maximum(0.0, x[idx_ch : idx_ch + T]), 1)
@@ -496,5 +499,6 @@ def run_energy_optimization(
         peak_demand_optimized_kw=round(peak_opt_grid_kw, 1),
         peak_demand_shaved_kw=round(peak_shaved_kw, 1),
         recommendations=recommendations,
-        computation_time_ms=elapsed_ms
+        computation_time_ms=elapsed_ms,
+        power_balance_max_error_kw=power_balance_max_error_kw
     )

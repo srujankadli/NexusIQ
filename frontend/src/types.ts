@@ -172,6 +172,7 @@ export interface OptimizationResponse {
   peak_demand_shaved_kw: number;
   recommendations: OptimizationRecommendation[];
   computation_time_ms: number;
+  power_balance_max_error_kw?: number;
 }
 
 export interface LiveDashboardResponse {

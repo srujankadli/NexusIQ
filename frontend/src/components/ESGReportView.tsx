@@ -24,9 +24,9 @@ export const ESGReportView: React.FC<ESGReportViewProps> = ({
   optimizationData,
   facilityConfig,
 }) => {
-  const co2AvoidedTons = optimizationData ? optimizationData.co2_avoided_tons : 1.2;
-  const costSavings = optimizationData ? optimizationData.cost_savings_inr : 8400;
-  const gridReduction = optimizationData ? optimizationData.grid_reduction_kwh : 1980;
+  const co2AvoidedTons = optimizationData ? optimizationData.co2_avoided_tons : 0.89;
+  const costSavings = optimizationData ? optimizationData.cost_savings_inr : 10243;
+  const gridReduction = optimizationData ? optimizationData.grid_reduction_kwh : 1235;
 
   function handlePrint() {
     window.print();

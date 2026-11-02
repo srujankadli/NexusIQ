@@ -196,9 +196,12 @@ def run_all_tests():
     # -------------------------------------------------------------
     try:
         sch = opt_l3.schedule
-        conserved_all = True
         max_delta = 0.0
         
+        # 1. Full-precision solver equality verification:
+        solver_error_valid = opt_l3.power_balance_max_error_kw < 1e-8
+        
+        # 2. UI-rounded 1-decimal display schedule verification:
         # For each hour: Supply = Grid + Solar_used + Bat_dis, Demand = Load_demand + Bat_ch
         # Notice: Load_demand is base_demand + shifted_flex
         for h in range(24):
@@ -206,18 +209,21 @@ def run_all_tests():
             solar = sch.solar_utilized_kw[h]
             dis = sch.battery_discharge_kw[h]
             ch = sch.battery_charge_kw[h]
-            # Total served campus load at hour h:
-            # P_grid + P_solar + P_dis - P_ch
             net_delivered = grid + solar + dis - ch
-            # Forecasted total demand was fc_l3.forecast_demand_kw[h] + shifted_load_kw[h]
             expected_load = fc_l3.forecast_demand_kw[h] + sch.shifted_load_kw[h]
             diff = abs(net_delivered - expected_load)
             if diff > max_delta:
                 max_delta = diff
-            if diff > 0.5:
-                conserved_all = False
                 
-        record_test("Energy Conservation for all 24 Intervals", conserved_all, f"(Max Imbalance Delta: {max_delta:.4f} kW)")
+        # Display rounding must be strictly within standard 1-decimal tolerance (<= 0.1 kW)
+        display_rounding_valid = max_delta <= 0.1001
+        conserved_all = solver_error_valid and display_rounding_valid
+                
+        record_test(
+            "Energy Conservation for all 24 Intervals",
+            conserved_all,
+            f"(Solver Precision: {opt_l3.power_balance_max_error_kw:.2e} kW, Display Rounding Delta: {max_delta:.4f} kW)"
+        )
     except Exception as e:
         record_test("Energy Conservation for all 24 Intervals", False, str(e))
 
