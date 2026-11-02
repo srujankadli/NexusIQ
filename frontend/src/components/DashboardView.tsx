@@ -61,27 +61,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     'Solar Generation': forecastData.solar_forecast_kw[idx],
   })) || [];
 
-  // Impact comparison data (Baseline vs Optimized)
+  // Impact comparison data (Baseline 100% vs Optimized %) with full-precision unscaled values
   const impactData = [
     {
-      category: 'Energy Cost (₹)',
-      Baseline: optimizationData ? Math.round(optimizationData.total_cost_baseline_inr / 40) : 11200,
-      Optimized: optimizationData ? Math.round(optimizationData.total_cost_optimized_inr / 40) : 8400,
-      unit: '₹',
+      category: 'Energy Cost',
+      Baseline: 100,
+      Optimized: optimizationData && optimizationData.total_cost_baseline_inr > 0
+        ? Number(((optimizationData.total_cost_optimized_inr / optimizationData.total_cost_baseline_inr) * 100).toFixed(1))
+        : 75.0,
+      baselineLabel: optimizationData ? `₹${optimizationData.total_cost_baseline_inr.toLocaleString()}` : '₹541,457',
+      optimizedLabel: optimizationData ? `₹${optimizationData.total_cost_optimized_inr.toLocaleString()}` : '₹438,200',
+      savingLabel: optimizationData
+        ? `₹${optimizationData.cost_savings_inr.toLocaleString()} saved (-${optimizationData.cost_savings_percent}%)`
+        : '₹103,257 saved (-19.1%)',
     },
     {
-      category: 'Grid Usage (kWh)',
-      Baseline: optimizationData ? Math.round(optimizationData.metrics_summary[1]?.baseline_value / 100) : 3650,
-      Optimized: optimizationData ? Math.round(optimizationData.metrics_summary[1]?.optimized_value / 100) : 1980,
-      unit: 'kWh',
+      category: 'Grid Import',
+      Baseline: 100,
+      Optimized: optimizationData && optimizationData.metrics_summary[1]?.baseline_value > 0
+        ? Number(((optimizationData.metrics_summary[1].optimized_value / optimizationData.metrics_summary[1].baseline_value) * 100).toFixed(1))
+        : 54.2,
+      baselineLabel: optimizationData && optimizationData.metrics_summary[1]
+        ? `${optimizationData.metrics_summary[1].baseline_value.toLocaleString()} kWh`
+        : '36,500 kWh',
+      optimizedLabel: optimizationData && optimizationData.metrics_summary[1]
+        ? `${optimizationData.metrics_summary[1].optimized_value.toLocaleString()} kWh`
+        : '19,800 kWh',
+      savingLabel: optimizationData
+        ? `${optimizationData.grid_reduction_kwh.toLocaleString()} kWh displaced`
+        : '16,700 kWh displaced',
     },
     {
-      category: 'CO2 Emissions (tons)',
-      Baseline: optimizationData ? Number((optimizationData.metrics_summary[3]?.baseline_value).toFixed(1)) : 2.1,
-      Optimized: optimizationData ? Number((optimizationData.metrics_summary[3]?.optimized_value).toFixed(1)) : 1.2,
-      unit: 'tons',
+      category: 'CO2 Emissions',
+      Baseline: 100,
+      Optimized: optimizationData && optimizationData.metrics_summary[3]?.baseline_value > 0
+        ? Number(((optimizationData.metrics_summary[3].optimized_value / optimizationData.metrics_summary[3].baseline_value) * 100).toFixed(1))
+        : 57.1,
+      baselineLabel: optimizationData && optimizationData.metrics_summary[3]
+        ? `${optimizationData.metrics_summary[3].baseline_value.toFixed(1)} tons`
+        : '26.3 tons',
+      optimizedLabel: optimizationData && optimizationData.metrics_summary[3]
+        ? `${optimizationData.metrics_summary[3].optimized_value.toFixed(1)} tons`
+        : '14.3 tons',
+      savingLabel: optimizationData
+        ? `${optimizationData.co2_avoided_tons.toFixed(1)} tons avoided`
+        : '12.0 tons avoided',
     },
   ];
+
+  const activeRec = dashboardData?.active_recommendation || optimizationData?.recommendations[0];
 
   return (
     <div className="space-y-6 pb-12">
@@ -162,11 +190,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `${kpis.solar_generation_kwh.toLocaleString()} kWh` : '2,140 kWh'}
+              {level !== 'level_1_basic'
+                ? (kpis ? `${kpis.solar_generation_kwh.toLocaleString()} kWh` : '2,140 kWh')
+                : '0 kWh'}
             </p>
             <p className="text-[11px] text-amber-400 font-medium flex items-center gap-0.5 mt-1">
-              <TrendingUp className="w-3 h-3" />
-              {kpis?.solar_generation_trend || '+18% vs last week'}
+              {level !== 'level_1_basic' ? (
+                <>
+                  <TrendingUp className="w-3 h-3" />
+                  {kpis?.solar_generation_trend || 'Sandia PV Physical Output'}
+                </>
+              ) : (
+                <span className="text-slate-500">No Solar Installed</span>
+              )}
             </p>
           </div>
         </div>
@@ -181,11 +217,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `${kpis.battery_soc_percent}%` : '76%'}
+              {level === 'level_3_campus'
+                ? (kpis ? `${kpis.battery_soc_percent}%` : '76%')
+                : 'N/A'}
             </p>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 mt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {kpis?.battery_status || 'Charging'}
+              {level === 'level_3_campus' ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {kpis?.battery_status || 'Charging'}
+                </>
+              ) : (
+                <span className="text-slate-500">No Storage Installed</span>
+              )}
             </p>
           </div>
         </div>
@@ -326,7 +370,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Model: Sandia PV + Gradient Boosted Time-Series</span>
+            <span>Model: Sandia PV + Ridge Regression (L2)</span>
             <span className="text-emerald-400 font-medium">95% Bayesian Confidence</span>
           </div>
         </div>
@@ -370,8 +414,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div>
                   <p className="text-xs font-semibold text-slate-300">Solar PV</p>
                   <p className="text-lg font-extrabold text-amber-400">
-                    {flow ? `${(flow.solar_generation_kw / 1000).toFixed(1)} MW` : '2.1 MW'}
+                    {level !== 'level_1_basic'
+                      ? (flow ? `${(flow.solar_generation_kw / 1000).toFixed(1)} MW` : '2.1 MW')
+                      : '0.0 MW'}
                   </p>
+                  <span className="text-[10px] text-amber-300">
+                    {level !== 'level_1_basic' ? 'Direct MPPT Active' : 'No Solar Installed'}
+                  </span>
                 </div>
               </div>
 
@@ -409,10 +458,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div>
                   <p className="text-xs font-semibold text-slate-300">Battery BESS</p>
                   <p className="text-lg font-extrabold text-emerald-400">
-                    {flow ? `${Math.abs(flow.battery_flow_kw / 1000).toFixed(1)} MW` : '0.8 MW'}
+                    {level === 'level_3_campus'
+                      ? (flow ? `${Math.abs(flow.battery_flow_kw / 1000).toFixed(1)} MW` : '0.8 MW')
+                      : '0.0 MW'}
                   </p>
                   <span className="text-[10px] text-emerald-300">
-                    {flow && flow.battery_flow_kw < 0 ? 'Charging (Surplus)' : 'Discharging'}
+                    {level === 'level_3_campus'
+                      ? (flow && flow.battery_flow_kw < 0 ? 'Charging (Surplus)' : 'Discharging')
+                      : 'No Storage Installed'}
                   </span>
                 </div>
               </div>
@@ -458,7 +511,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <p className="text-sm text-slate-200 leading-relaxed font-medium">
-              Shift non-critical loads (e.g., water pumping, HVAC pre-cooling) to <strong>12:00 PM – 3:00 PM</strong> to utilize solar surplus and reduce grid dependence. Charge battery during surplus, reserve 60% capacity for evening peak demand.
+              {activeRec?.reasoning ||
+                'Shift non-critical loads (e.g., water pumping, HVAC pre-cooling) to 12:00 PM – 3:00 PM to utilize solar surplus and reduce grid dependence. Charge battery during surplus, reserve 60% capacity for evening peak demand.'}
             </p>
 
             <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
@@ -470,11 +524,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">Load Shifted</span>
-                <span className="text-blue-400 font-bold text-sm">650 kWh</span>
+                <span className="text-blue-400 font-bold text-sm">
+                  {activeRec?.energy_impact || '650 kWh'}
+                </span>
               </div>
               <div className="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
                 <span className="text-slate-400 block text-[10px]">Constraint Guard</span>
-                <span className="text-amber-400 font-bold text-sm">Comfort ±1.2°C</span>
+                <span className="text-amber-400 font-bold text-sm">
+                  {activeRec?.operational_constraints || 'Comfort ±1.2°C'}
+                </span>
               </div>
             </div>
           </div>
@@ -504,10 +562,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div className="flex items-center gap-3 text-xs">
                 <span className="flex items-center gap-1 text-slate-400">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-slate-500" /> Baseline
+                  <span className="w-2.5 h-2.5 rounded-sm bg-slate-500" /> Baseline (100%)
                 </span>
                 <span className="flex items-center gap-1 text-emerald-400 font-medium">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Optimized
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" /> Optimized (%)
                 </span>
               </div>
             </div>
@@ -517,14 +575,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <BarChart data={impactData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis dataKey="category" stroke="#94a3b8" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} domain={[0, 110]} unit="%" />
                   <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderColor: '#334155',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      color: '#f8fafc'
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const d = payload[0].payload;
+                        return (
+                          <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-xl text-xs space-y-1.5">
+                            <p className="font-bold text-white border-b border-slate-800 pb-1">{d.category}</p>
+                            <p className="text-slate-400">
+                              Baseline (100%): <strong className="text-slate-200">{d.baselineLabel}</strong>
+                            </p>
+                            <p className="text-emerald-400">
+                              Optimized ({d.Optimized}%): <strong className="text-emerald-300">{d.optimizedLabel}</strong>
+                            </p>
+                            <p className="text-[11px] text-cyan-300 pt-1 border-t border-slate-800">
+                              {d.savingLabel}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
                   <Bar dataKey="Baseline" fill="#64748b" radius={[4, 4, 0, 0]} />

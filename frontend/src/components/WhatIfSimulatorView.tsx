@@ -34,6 +34,13 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
   const [applying, setApplying] = useState(false);
   const [applyFeedback, setApplyFeedback] = useState<string | null>(null);
 
+  const baseSolar = (facilityConfig?.solar_installed_capacity_kw && facilityConfig.solar_installed_capacity_kw > 0)
+    ? facilityConfig.solar_installed_capacity_kw
+    : 2100;
+  const baseBattery = (facilityConfig?.battery_capacity_kwh && facilityConfig.battery_capacity_kwh > 0)
+    ? facilityConfig.battery_capacity_kwh
+    : 1200;
+
   async function runSim() {
     try {
       const req: WhatIfRequest = {
@@ -67,10 +74,14 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
     if (!facilityConfig || !onApplyConfig) return;
     setApplying(true);
     try {
+      const newSolarCap = Math.round(baseSolar * solarMult);
+      const newBatCap = Math.round(baseBattery * batteryMult);
       const updated: FacilityConfig = {
         ...facilityConfig,
-        solar_installed_capacity_kw: Math.round(facilityConfig.solar_installed_capacity_kw * solarMult),
-        battery_capacity_kwh: Math.round(facilityConfig.battery_capacity_kwh * batteryMult),
+        solar_installed_capacity_kw: newSolarCap,
+        has_solar: newSolarCap > 0,
+        battery_capacity_kwh: newBatCap,
+        has_battery: newBatCap > 0,
         grid_tariff_peak_inr: Number((facilityConfig.grid_tariff_peak_inr * tariffMult).toFixed(2)),
         grid_tariff_normal_inr: Number((facilityConfig.grid_tariff_normal_inr * tariffMult).toFixed(2)),
         grid_tariff_offpeak_inr: Number((facilityConfig.grid_tariff_offpeak_inr * tariffMult).toFixed(2)),
@@ -147,7 +158,7 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
               <span className="text-slate-300 flex items-center gap-1.5">
                 <Sun className="w-3.5 h-3.5 text-amber-400" /> Solar PV Capacity
               </span>
-              <span className="font-bold text-amber-400">{solarMult.toFixed(1)}x ({Math.round(2100 * solarMult)} kWp)</span>
+              <span className="font-bold text-amber-400">{solarMult.toFixed(1)}x ({Math.round(baseSolar * solarMult).toLocaleString()} kWp)</span>
             </div>
             <input
               type="range"
@@ -159,9 +170,9 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
               className="w-full accent-amber-500 bg-slate-800 rounded-lg h-2 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-500">
-              <span>0 kW (No Solar)</span>
-              <span>2,100 kW</span>
-              <span>5,250 kW (3x)</span>
+              <span>0 kW</span>
+              <span>{Math.round(baseSolar).toLocaleString()} kW</span>
+              <span>{Math.round(baseSolar * 2.5).toLocaleString()} kW (2.5x)</span>
             </div>
           </div>
 
@@ -171,7 +182,7 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
               <span className="text-slate-300 flex items-center gap-1.5">
                 <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" /> BESS Storage Size
               </span>
-              <span className="font-bold text-emerald-400">{batteryMult.toFixed(1)}x ({Math.round(1200 * batteryMult)} kWh)</span>
+              <span className="font-bold text-emerald-400">{batteryMult.toFixed(1)}x ({Math.round(baseBattery * batteryMult).toLocaleString()} kWh)</span>
             </div>
             <input
               type="range"
@@ -183,9 +194,9 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
               className="w-full accent-emerald-500 bg-slate-800 rounded-lg h-2 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-slate-500">
-              <span>0 kWh (No BESS)</span>
-              <span>1,200 kWh</span>
-              <span>3,000 kWh</span>
+              <span>0 kWh</span>
+              <span>{Math.round(baseBattery).toLocaleString()} kWh</span>
+              <span>{Math.round(baseBattery * 2.5).toLocaleString()} kWh (2.5x)</span>
             </div>
           </div>
 

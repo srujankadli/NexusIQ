@@ -126,13 +126,25 @@ export const DigitalTwinView: React.FC<DigitalTwinViewProps> = ({
             </div>
             <div className="my-3">
               <p className="text-2xl font-extrabold text-amber-400">
-                {flowState ? `${(flowState.solar_generation_kw / 1000).toFixed(2)} MW` : '2.10 MW'}
+                {facilityConfig?.has_solar
+                  ? (flowState ? `${(flowState.solar_generation_kw / 1000).toFixed(2)} MW` : '2.10 MW')
+                  : '0.00 MW'}
               </p>
-              <p className="text-[11px] text-slate-400">Installed: 2,100 kWp Polycrystalline</p>
+              <p className="text-[11px] text-slate-400">
+                {facilityConfig?.has_solar
+                  ? `Installed: ${facilityConfig.solar_installed_capacity_kw.toLocaleString()} kWp Polycrystalline`
+                  : 'No Solar Installed (Level 1)'}
+              </p>
             </div>
             <div className="pt-2 border-t border-slate-800 text-[11px] text-amber-300 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              Direct MPPT Inverters Active
+              {facilityConfig?.has_solar ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  Direct MPPT Inverters Active
+                </>
+              ) : (
+                <span className="text-slate-500">Solar Array Inactive</span>
+              )}
             </div>
           </div>
 
@@ -146,7 +158,9 @@ export const DigitalTwinView: React.FC<DigitalTwinViewProps> = ({
               <p className="text-2xl font-extrabold text-cyan-400">
                 {flowState ? `${(flowState.grid_consumption_kw / 1000).toFixed(2)} MW` : '1.98 MW'}
               </p>
-              <p className="text-[11px] text-slate-400">Contracted: 6,000 kVA (BESCOM HT-2a)</p>
+              <p className="text-[11px] text-slate-400">
+                Contracted: {facilityConfig?.grid_contracted_demand_kw ? `${facilityConfig.grid_contracted_demand_kw.toLocaleString()} kW` : '6,000 kW'} (BESCOM HT-2a)
+              </p>
             </div>
             <div className="pt-2 border-t border-slate-800 text-[11px] text-cyan-300 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3 text-cyan-400" />
@@ -162,13 +176,25 @@ export const DigitalTwinView: React.FC<DigitalTwinViewProps> = ({
             </div>
             <div className="my-3">
               <p className="text-2xl font-extrabold text-emerald-400">
-                {flowState ? `${flowState.battery_soc_percent}% SoC` : '76% SoC'}
+                {facilityConfig?.has_battery
+                  ? (flowState ? `${flowState.battery_soc_percent}% SoC` : '76% SoC')
+                  : 'N/A'}
               </p>
-              <p className="text-[11px] text-slate-400">Capacity: 1,200 kWh (800 kW max power)</p>
+              <p className="text-[11px] text-slate-400">
+                {facilityConfig?.has_battery
+                  ? `Capacity: ${facilityConfig.battery_capacity_kwh.toLocaleString()} kWh (${facilityConfig.battery_max_power_kw} kW max power)`
+                  : 'No Storage Installed (Level 1/2)'}
+              </p>
             </div>
             <div className="pt-2 border-t border-slate-800 text-[11px] text-emerald-300 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {flowState && flowState.battery_flow_kw < 0 ? 'Charging from Solar Surplus' : 'Discharging for Peak Shaving'}
+              {facilityConfig?.has_battery ? (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {flowState && flowState.battery_flow_kw < 0 ? 'Charging from Solar Surplus' : 'Discharging for Peak Shaving'}
+                </>
+              ) : (
+                <span className="text-slate-500">Storage Offline (L3 Required)</span>
+              )}
             </div>
           </div>
 

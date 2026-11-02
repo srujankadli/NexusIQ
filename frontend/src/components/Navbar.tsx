@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Leaf,
   Activity,
@@ -10,7 +10,9 @@ import {
   Building2,
   CheckCircle2,
   Sparkles,
-  Settings
+  Settings,
+  Menu,
+  X
 } from 'lucide-react';
 import { DeploymentLevel, FacilityConfig } from '../types';
 
@@ -29,7 +31,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSwitchLevel,
   onOpenSettings,
 }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const currentLevel = facilityConfig?.level || 'level_3_campus';
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Activity },
+    { id: 'digital-twin', label: 'Digital Twin', icon: Building2 },
+    { id: 'forecasting', label: 'AI Forecast', icon: Sparkles },
+    { id: 'optimization', label: 'Optimization', icon: Cpu },
+    { id: 'what-if', label: 'What-If Sim', icon: Sliders },
+    { id: 'data-upload', label: 'Data Ingestion', icon: UploadCloud },
+    { id: 'esg-reports', label: 'ESG Reports', icon: FileText },
+  ];
+
+  function handleTabClick(id: string) {
+    setActiveTab(id);
+    setMobileMenuOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
@@ -37,7 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Logo & Identity */}
           <div
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => handleTabClick('dashboard')}
             className="flex items-center space-x-3 cursor-pointer group"
           >
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
@@ -58,23 +76,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Center Navigation Tabs */}
+          {/* Center Navigation Tabs (Desktop) */}
           <nav className="hidden md:flex items-center space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800/80">
-            {[
-              { id: 'dashboard', label: 'Dashboard', icon: Activity },
-              { id: 'digital-twin', label: 'Digital Twin', icon: Building2 },
-              { id: 'forecasting', label: 'AI Forecast', icon: Sparkles },
-              { id: 'optimization', label: 'Optimization', icon: Cpu },
-              { id: 'what-if', label: 'What-If Sim', icon: Sliders },
-              { id: 'data-upload', label: 'Data Ingestion', icon: UploadCloud },
-              { id: 'esg-reports', label: 'ESG Reports', icon: FileText },
-            ].map((tab) => {
+            {navItems.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabClick(tab.id)}
                   className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
                     isActive
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm'
@@ -136,6 +146,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Settings className="w-4 h-4" />
             </button>
 
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition cursor-pointer"
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+
             {/* Institution Badge */}
             <div className="hidden lg:flex flex-col text-right pl-2 border-l border-slate-800">
               <span className="text-[11px] font-semibold text-slate-300">
@@ -149,6 +168,30 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mobile Navigation Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-1 shadow-2xl">
+          {navItems.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab.id)}
+                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition cursor-pointer ${
+                  isActive
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4 text-emerald-400" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </header>
   );
 };
