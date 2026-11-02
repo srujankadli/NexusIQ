@@ -7,10 +7,11 @@ import {
   WhatIfRequest,
   WhatIfResponse,
   CSVUploadSummary,
-  BuildingLoad
+  BuildingLoad,
+  ActiveDatasetStatus
 } from '../types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export const api = {
   async getHealth() {
@@ -20,6 +21,22 @@ export const api = {
     } catch {
       return { status: 'offline', version: '1.0.0' };
     }
+  },
+
+  async getDatasetStatus(): Promise<ActiveDatasetStatus> {
+    const res = await fetch(`${API_BASE}/dataset/status`);
+    if (!res.ok) throw new Error('Failed to fetch dataset status');
+    return res.json();
+  },
+
+  async switchDatasetMode(mode: 'demo' | 'uploaded', level?: DeploymentLevel): Promise<ActiveDatasetStatus> {
+    const res = await fetch(`${API_BASE}/dataset/switch-mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, level }),
+    });
+    if (!res.ok) throw new Error('Failed to switch dataset mode');
+    return res.json();
   },
 
   async getProfile(): Promise<FacilityConfig> {

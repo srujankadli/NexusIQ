@@ -34,12 +34,12 @@ export const WhatIfSimulatorView: React.FC<WhatIfSimulatorViewProps> = ({
   const [applying, setApplying] = useState(false);
   const [applyFeedback, setApplyFeedback] = useState<string | null>(null);
 
-  const baseSolar = (facilityConfig?.solar_installed_capacity_kw && facilityConfig.solar_installed_capacity_kw > 0)
-    ? facilityConfig.solar_installed_capacity_kw
-    : 2100;
-  const baseBattery = (facilityConfig?.battery_capacity_kwh && facilityConfig.battery_capacity_kwh > 0)
-    ? facilityConfig.battery_capacity_kwh
-    : 1200;
+  const baseSolar = facilityConfig?.has_solar
+    ? (facilityConfig.solar_installed_capacity_kw || 1200)
+    : 0;
+  const baseBattery = facilityConfig?.has_battery
+    ? (facilityConfig.battery_capacity_kwh || 1200)
+    : 0;
 
   async function runSim() {
     try {

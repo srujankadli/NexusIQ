@@ -1,0 +1,25 @@
+timestamp,demand_kw,solar_kw,building_id,temperature_c
+2026-10-15 00:00,145.2,0.0,Innovation Tower,21.5
+2026-10-15 01:00,132.8,0.0,Innovation Tower,21.0
+2026-10-15 02:00,128.4,0.0,Innovation Tower,20.6
+2026-10-15 03:00,125.0,0.0,Innovation Tower,20.4
+2026-10-15 04:00,130.5,0.0,Innovation Tower,20.2
+2026-10-15 05:00,148.1,0.0,Innovation Tower,20.8
+2026-10-15 06:00,210.4,0.0,Innovation Tower,21.5
+2026-10-15 07:00,340.6,42.5,Innovation Tower,23.0
+2026-10-15 08:00,580.2,165.0,Innovation Tower,25.2
+2026-10-15 09:00,820.5,280.4,Innovation Tower,27.5
+2026-10-15 10:00,915.0,385.2,Innovation Tower,29.1
+2026-10-15 11:00,945.8,430.8,Innovation Tower,30.5
+2026-10-15 12:00,960.2,460.5,Innovation Tower,31.2
+2026-10-15 13:00,950.4,455.0,Innovation Tower,31.5
+2026-10-15 14:00,930.1,410.2,Innovation Tower,31.0
+2026-10-15 15:00,890.6,325.8,Innovation Tower,30.2
+2026-10-15 16:00,795.3,195.4,Innovation Tower,28.8
+2026-10-15 17:00,640.8,65.0,Innovation Tower,27.2
+2026-10-15 18:00,480.2,0.0,Innovation Tower,25.8
+2026-10-15 19:00,360.5,0.0,Innovation Tower,24.5
+2026-10-15 20:00,285.0,0.0,Innovation Tower,23.8
+2026-10-15 21:00,220.4,0.0,Innovation Tower,23.0
+2026-10-15 22:00,185.6,0.0,Innovation Tower,22.4
+2026-10-15 23:00,158.2,0.0,Innovation Tower,21.9

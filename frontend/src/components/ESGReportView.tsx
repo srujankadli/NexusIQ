@@ -24,9 +24,10 @@ export const ESGReportView: React.FC<ESGReportViewProps> = ({
   optimizationData,
   facilityConfig,
 }) => {
-  const co2AvoidedTons = optimizationData ? optimizationData.co2_avoided_tons : 0.89;
-  const costSavings = optimizationData ? optimizationData.cost_savings_inr : 10243;
-  const gridReduction = optimizationData ? optimizationData.grid_reduction_kwh : 1235;
+  const co2AvoidedTons = optimizationData ? optimizationData.co2_avoided_tons : 0.0;
+  const costSavings = optimizationData ? optimizationData.cost_savings_inr : 0;
+  const gridReduction = optimizationData ? optimizationData.grid_reduction_kwh : 0;
+  const activeDataset = dashboardData?.active_dataset;
 
   function handlePrint() {
     window.print();
@@ -77,8 +78,10 @@ export const ESGReportView: React.FC<ESGReportViewProps> = ({
           </div>
 
           <div className="text-right">
-            <span className="text-xs text-slate-400 block">Facility:</span>
-            <span className="text-sm font-bold text-emerald-400">{facilityConfig?.name || 'NHCE Green Campus'}</span>
+            <span className="text-xs text-slate-400 block">Active Dataset:</span>
+            <span className="text-sm font-bold text-emerald-400">
+              {activeDataset ? activeDataset.filename : (facilityConfig?.name || 'NHCE Green Campus')}
+            </span>
           </div>
         </div>
 

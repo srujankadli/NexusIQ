@@ -1,4 +1,5 @@
 import sys
+import os
 import time
 from playwright.sync_api import sync_playwright
 
@@ -26,8 +27,10 @@ def run_e2e_audit():
         # -------------------------------------------------------------
         # STEP 1: INITIAL LOAD & DASHBOARD VIEW
         # -------------------------------------------------------------
+        frontend_host = os.getenv("FRONTEND_HOST", "localhost")
+        frontend_port = os.getenv("FRONTEND_PORT", "3000")
         print("\n--- 1. Testing Dashboard View & Initial Load ---")
-        page.goto("http://127.0.0.1:5173/", wait_until="networkidle")
+        page.goto(f"http://{frontend_host}:{frontend_port}/", wait_until="networkidle")
         time.sleep(2)
 
         # Check page title and banner
@@ -38,6 +41,22 @@ def run_e2e_audit():
         kpi_cards = page.locator(".grid-cols-2.md\\:grid-cols-3 > div")
         count = kpi_cards.count()
         print(f"  [PASS] Found {count} KPI summary cards on Dashboard")
+
+        # Verify Energy Demand vs Solar Forecast chart and 3 series
+        legend_texts = page.locator(".recharts-legend-item-text").all_text_contents()
+        print(f"  [PASS] Chart Legend items: {legend_texts}")
+        assert "Actual Demand" in legend_texts, "Actual Demand missing from legend"
+        assert "Forecasted Demand" in legend_texts, "Forecasted Demand missing from legend"
+        assert "Solar Generation" in legend_texts, "Solar Generation missing from legend"
+
+        curves = page.locator(".recharts-curve")
+        curve_count = curves.count()
+        print(f"  [PASS] Found {curve_count} chart curve paths rendered")
+        assert curve_count >= 3, f"Expected at least 3 curves, found {curve_count}"
+
+        # Verify conservation equilibrium indicator
+        cons_text = page.locator("span:has-text('Equilibrium Verified')").first.text_content()
+        print(f"  [PASS] Energy conservation indicator: '{cons_text}'")
 
         # Test Refresh button
         refresh_btn = page.get_by_role("button", name="Refresh")

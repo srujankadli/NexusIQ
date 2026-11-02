@@ -89,8 +89,8 @@ flowchart TD
 **1. Start Backend Engine:**
 ```powershell
 python start_backend.py
-# Backend runs on http://127.0.0.1:8000
-# Interactive OpenAPI Swagger Docs: http://127.0.0.1:8000/docs
+# Backend runs on http://127.0.0.1:8001 (configurable via BACKEND_PORT or CLI arg, e.g. python start_backend.py 8001)
+# Interactive OpenAPI Swagger Docs: http://127.0.0.1:8001/docs
 ```
 
 **2. Start Frontend UI:**

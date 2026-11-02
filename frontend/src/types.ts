@@ -175,9 +175,34 @@ export interface OptimizationResponse {
   power_balance_max_error_kw?: number;
 }
 
+export interface ActiveDatasetStatus {
+  source_type: 'demo' | 'uploaded';
+  filename: string;
+  display_name: string;
+  upload_timestamp: string;
+  total_records: number;
+  date_range: string;
+  interval_minutes?: number;
+  columns_detected: string[];
+  missing_values_count: number;
+  data_quality_notes: string[];
+  total_consumption_kwh: number;
+  peak_demand_kw: number;
+  avg_demand_kw: number;
+  has_solar: boolean;
+  solar_installed_capacity_kw: number;
+  total_solar_kwh: number;
+  has_battery: boolean;
+  battery_capacity_kwh: number;
+  battery_max_power_kw: number;
+  has_submeters: boolean;
+  inferred_level: DeploymentLevel;
+}
+
 export interface LiveDashboardResponse {
   facility_name: string;
   deployment_level: DeploymentLevel;
+  active_dataset?: ActiveDatasetStatus;
   kpis: {
     total_consumption_kwh: number;
     total_consumption_trend: string;

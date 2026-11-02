@@ -8,6 +8,11 @@ if __name__ == "__main__":
     if backend_dir not in sys.path:
         sys.path.insert(0, backend_dir)
 
-    print("Starting NexusIQ FastAPI Engine on http://127.0.0.1:8000...")
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=True, app_dir=backend_dir)
+    # Configurable port: CLI argument > BACKEND_PORT > PORT > default 8001
+    # Port 8001 prevents WinError 10013 on Windows systems where port 8000 is reserved
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.getenv("BACKEND_PORT", os.getenv("PORT", "8001")))
+    host = os.getenv("HOST", "127.0.0.1")
+
+    print(f"Starting NexusIQ FastAPI Engine on http://{host}:{port}...")
+    uvicorn.run("app.main:app", host=host, port=port, reload=True, app_dir=backend_dir)
 

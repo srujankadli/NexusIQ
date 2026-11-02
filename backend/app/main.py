@@ -20,6 +20,7 @@ from .sample_data import (
     generate_sample_csv_content,
     get_tou_tariff
 )
+from .dataset_manager import dataset_manager
 from .csv_parser import parse_energy_csv
 from .forecasting import run_ai_forecast
 from .optimization import run_energy_optimization
@@ -31,34 +32,20 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Restrictive & Configurable CORS for Deployment Safety
 ALLOWED_ORIGINS = os.getenv(
     "NEXUSIQ_CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8001,http://127.0.0.1:8001"
 ).split(",")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Configurable Facility State in memory
-CURRENT_FACILITY = FacilityConfig(
-    name="NHCE Green Campus",
-    level="level_3_campus",
-    grid_contracted_demand_kw=6000.0,
-    has_solar=True,
-    solar_installed_capacity_kw=2100.0,
-    has_battery=True,
-    battery_capacity_kwh=1200.0,
-    battery_max_power_kw=800.0,
-    has_flexible_loads=True
-)
-
-CUSTOM_DEMAND_DATA: Optional[List[float]] = None
 REMEDIATED_ANOMALIES: set = set()
 BUILDING_OVERRIDES: Dict[str, Dict[str, Any]] = {}
 
@@ -69,102 +56,128 @@ def health_check():
         "platform": "NexusIQ AI-Powered Energy Management Platform",
         "institution": "NHCE - Team EcoNexus",
         "competition": "Ideathon 2026",
-        "version": "1.0.0"
+        "version": "1.0.0",
+        "active_dataset": dataset_manager.active.display_name
     }
+
+# -------------------------------------------------------------
+# CENTRALIZED DATASET STATE & SOURCE OF TRUTH
+# -------------------------------------------------------------
+@app.get("/api/dataset/status")
+def get_dataset_status():
+    """
+    Returns the current active dataset state (single source of truth).
+    """
+    return dataset_manager.active.to_dict()
+
+@app.post("/api/dataset/switch-mode")
+def switch_dataset_mode(payload: Dict[str, Any] = Body(...)):
+    """
+    Switches between Demo Mode and Uploaded Data Mode.
+    """
+    mode = payload.get("mode", "demo")
+    level = payload.get("level", "level_3_campus")
+    if mode == "demo":
+        dataset_manager.switch_to_demo(level)
+    return dataset_manager.active.to_dict()
 
 @app.get("/api/profile", response_model=FacilityConfig)
 def get_facility_profile():
-    return CURRENT_FACILITY
+    return dataset_manager.get_facility_config()
 
 @app.post("/api/profile/switch", response_model=FacilityConfig)
 def switch_deployment_level(level: DeploymentLevel):
-    global CURRENT_FACILITY
-    if level == "level_1_basic":
-        CURRENT_FACILITY = FacilityConfig(
-            name="NHCE Administrative & Academic Block",
-            level="level_1_basic",
-            grid_contracted_demand_kw=2500.0,
-            has_solar=False,
-            solar_installed_capacity_kw=0.0,
-            has_battery=False,
-            battery_capacity_kwh=0.0,
-            battery_max_power_kw=0.0,
-            has_flexible_loads=True
-        )
-    elif level == "level_2_solar":
-        CURRENT_FACILITY = FacilityConfig(
-            name="NHCE Solar-Equipped Campus Block",
-            level="level_2_solar",
-            grid_contracted_demand_kw=4000.0,
-            has_solar=True,
-            solar_installed_capacity_kw=1200.0,
-            has_battery=False,
-            battery_capacity_kwh=0.0,
-            battery_max_power_kw=0.0,
-            has_flexible_loads=True
-        )
+    active = dataset_manager.active
+    if active.source_type == "demo":
+        dataset_manager.switch_to_demo(level)
     else:
-        CURRENT_FACILITY = FacilityConfig(
-            name="NHCE Intelligent Campus",
-            level="level_3_campus",
-            grid_contracted_demand_kw=6000.0,
-            has_solar=True,
-            solar_installed_capacity_kw=2100.0,
-            has_battery=True,
-            battery_capacity_kwh=1200.0,
-            battery_max_power_kw=800.0,
-            has_flexible_loads=True
-        )
-    return CURRENT_FACILITY
+        active.inferred_level = level
+        if level == "level_1_basic":
+            active.has_solar = False
+            active.has_battery = False
+        elif level == "level_2_solar":
+            active.has_solar = True
+            active.has_battery = False
+        else:
+            active.has_solar = True
+            active.has_battery = True
+    return dataset_manager.get_facility_config()
 
 @app.post("/api/settings", response_model=FacilityConfig)
 def update_settings(config: FacilityConfig):
-    global CURRENT_FACILITY
-    CURRENT_FACILITY = config
-    return CURRENT_FACILITY
+    active = dataset_manager.active
+    active.has_solar = config.has_solar
+    active.solar_installed_capacity_kw = config.solar_installed_capacity_kw
+    active.has_battery = config.has_battery
+    active.battery_capacity_kwh = config.battery_capacity_kwh
+    active.battery_max_power_kw = config.battery_max_power_kw
+    active.inferred_level = config.level
+    return dataset_manager.get_facility_config()
 
+# -------------------------------------------------------------
+# DYNAMIC DASHBOARD (Derives metrics strictly from active dataset)
+# -------------------------------------------------------------
 @app.get("/api/dashboard/live")
 def get_live_dashboard():
-    flow = get_live_energy_flow_state(CURRENT_FACILITY, simulated_hour=13)
-    forecast = run_ai_forecast(CURRENT_FACILITY, custom_demand_24h=CUSTOM_DEMAND_DATA)
-    # Filter out remediated anomalies
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+
+    flow = get_live_energy_flow_state(
+        facility,
+        simulated_hour=13,
+        active_demand_24h=active.demand_24h,
+        active_solar_24h=active.solar_24h,
+        data_source_label=f"{'Uploaded' if active.source_type == 'uploaded' else 'Demo'}: {active.filename}"
+    )
+
+    forecast = run_ai_forecast(
+        facility,
+        custom_demand_24h=active.demand_24h,
+        custom_solar_24h=active.solar_24h
+    )
+
     filtered_anomalies = [a for a in forecast.anomalies if a.id not in REMEDIATED_ANOMALIES]
     forecast.anomalies = filtered_anomalies
 
     opt = run_energy_optimization(
-        CURRENT_FACILITY,
+        facility,
         forecast.forecast_demand_kw,
         forecast.solar_forecast_kw
     )
 
-    total_consumption_kwh = sum(forecast.actual_demand_kw)
-    solar_generation_kwh = sum(forecast.solar_forecast_kw)
+    total_consumption_kwh = active.total_consumption_kwh
+    solar_generation_kwh = active.total_solar_kwh if active.has_solar else 0.0
     grid_consumption_kwh = sum(opt.schedule.optimized_grid_kw)
     estimated_cost_inr = opt.total_cost_optimized_inr
     co2_emissions_avoided_tons = opt.co2_avoided_tons
 
-    # Derive genuine, non-fabricated trends from backend calculations
     cost_trend = f"{opt.metrics_summary[0].change_percent:+.1f}% vs baseline"
     grid_trend = f"{opt.metrics_summary[1].change_percent:+.1f}% vs baseline"
     co2_trend = f"{opt.metrics_summary[3].change_percent:+.1f}% vs baseline"
 
     battery_status = "Standby"
-    if CURRENT_FACILITY.has_battery:
+    if facility.has_battery:
         if flow.battery_flow_kw < -1.0:
             battery_status = "Charging (Surplus)"
         elif flow.battery_flow_kw > 1.0:
             battery_status = "Discharging (Peak Shaving)"
 
+    solar_trend = (
+        ("Active Ingested PV Telemetry" if active.source_type == "uploaded" else "Sandia PV Physical Output")
+        if active.has_solar else "No Solar Installed"
+    )
+
     return {
-        "facility_name": CURRENT_FACILITY.name,
-        "deployment_level": CURRENT_FACILITY.level,
+        "facility_name": facility.name,
+        "deployment_level": facility.level,
+        "active_dataset": active.to_dict(),
         "kpis": {
             "total_consumption_kwh": round(total_consumption_kwh, 1),
-            "total_consumption_trend": "Measured Daily Demand",
+            "total_consumption_trend": f"Dataset Total ({active.total_records} intervals)",
             "solar_generation_kwh": round(solar_generation_kwh, 1),
-            "solar_generation_trend": "Sandia PV Physical Output" if CURRENT_FACILITY.has_solar else "N/A (No Solar Installed)",
-            "battery_soc_percent": flow.battery_soc_percent if CURRENT_FACILITY.has_battery else 0.0,
-            "battery_status": battery_status if CURRENT_FACILITY.has_battery else "N/A (No Storage Installed)",
+            "solar_generation_trend": solar_trend,
+            "battery_soc_percent": flow.battery_soc_percent if facility.has_battery else 0.0,
+            "battery_status": battery_status if facility.has_battery else "N/A (No Storage Installed)",
             "grid_consumption_kwh": round(grid_consumption_kwh, 1),
             "grid_consumption_trend": grid_trend,
             "estimated_cost_today_inr": round(estimated_cost_inr, 2),
@@ -176,17 +189,29 @@ def get_live_dashboard():
         "active_recommendation": opt.recommendations[0] if opt.recommendations else None,
         "total_anomalies_detected": len(filtered_anomalies),
         "data_fidelity_badges": {
-            "historical_data": "Verified Telemetry" if CUSTOM_DEMAND_DATA else "Baseline Operational Profile",
+            "historical_data": f"{'Uploaded' if active.source_type == 'uploaded' else 'Demo'}: {active.filename}",
             "ai_models": "Ridge Regression & HiGHS MILP Solver",
             "hardware_automation": "Simulation Mode (API Ready)"
         }
     }
 
+# -------------------------------------------------------------
+# DYNAMIC FORECASTING (Trained on Active Dataset)
+# -------------------------------------------------------------
 @app.get("/api/forecast/24h", response_model=ForecastResponse)
 def get_24h_forecast(cloud_cover: float = 15.0):
     if not (0.0 <= cloud_cover <= 100.0):
         raise HTTPException(status_code=400, detail="cloud_cover must be between 0.0 and 100.0")
-    res = run_ai_forecast(CURRENT_FACILITY, custom_demand_24h=CUSTOM_DEMAND_DATA, cloud_cover_percent=cloud_cover)
+
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+
+    res = run_ai_forecast(
+        facility,
+        custom_demand_24h=active.demand_24h,
+        custom_solar_24h=active.solar_24h,
+        cloud_cover_percent=cloud_cover
+    )
     res.anomalies = [a for a in res.anomalies if a.id not in REMEDIATED_ANOMALIES]
     return res
 
@@ -200,11 +225,22 @@ def remediate_anomaly(anomaly_id: str = Body(..., embed=True)):
         "message": "Simulation: Virtual BMS interlock script triggered to resolve anomaly."
     }
 
+# -------------------------------------------------------------
+# DYNAMIC OPTIMIZATION (Uses Active Dataset as Baseline)
+# -------------------------------------------------------------
 @app.post("/api/optimize", response_model=OptimizationResponse)
 def run_optimization(flexible_shift_enabled: bool = True):
-    forecast = run_ai_forecast(CURRENT_FACILITY, custom_demand_24h=CUSTOM_DEMAND_DATA)
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+
+    forecast = run_ai_forecast(
+        facility,
+        custom_demand_24h=active.demand_24h,
+        custom_solar_24h=active.solar_24h
+    )
+
     return run_energy_optimization(
-        CURRENT_FACILITY,
+        facility,
         forecast.forecast_demand_kw,
         forecast.solar_forecast_kw,
         flexible_shift_enabled=flexible_shift_enabled
@@ -212,8 +248,11 @@ def run_optimization(flexible_shift_enabled: bool = True):
 
 @app.get("/api/optimization/download-schedule-csv")
 def download_schedule_csv():
-    forecast = run_ai_forecast(CURRENT_FACILITY, custom_demand_24h=CUSTOM_DEMAND_DATA)
-    opt = run_energy_optimization(CURRENT_FACILITY, forecast.forecast_demand_kw, forecast.solar_forecast_kw)
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+
+    forecast = run_ai_forecast(facility, custom_demand_24h=active.demand_24h, custom_solar_24h=active.solar_24h)
+    opt = run_energy_optimization(facility, forecast.forecast_demand_kw, forecast.solar_forecast_kw)
     sch = opt.schedule
     lines = ["hour,time,baseline_grid_kw,optimized_grid_kw,solar_utilized_kw,battery_charge_kw,battery_discharge_kw,battery_soc_percent,shifted_load_kw"]
     for i, t in enumerate(sch.hours):
@@ -224,27 +263,44 @@ def download_schedule_csv():
         headers={"Content-Disposition": "attachment; filename=nexusiq_optimized_dispatch_schedule.csv"}
     )
 
+# -------------------------------------------------------------
+# WHAT-IF SIMULATOR (Derived from Active Dataset)
+# -------------------------------------------------------------
 @app.post("/api/what-if", response_model=WhatIfResponse)
 def run_what_if_analysis(req: WhatIfRequest):
-    return simulate_what_if(req, CURRENT_FACILITY)
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+    return simulate_what_if(
+        req,
+        facility,
+        active_demand_24h=active.demand_24h,
+        active_solar_24h=active.solar_24h
+    )
 
+# -------------------------------------------------------------
+# CSV INGESTION & DATASET SWITCHING
+# -------------------------------------------------------------
 @app.post("/api/upload-csv", response_model=CSVUploadSummary)
 async def upload_energy_csv(file: UploadFile = File(...)):
-    global CUSTOM_DEMAND_DATA
     try:
         content = await file.read()
         summary, norm_data = parse_energy_csv(content, file.filename or "uploaded.csv")
-        CUSTOM_DEMAND_DATA = norm_data["demand_24h"]
+        dataset_manager.set_uploaded_dataset(summary, norm_data)
+        REMEDIATED_ANOMALIES.clear()
+        BUILDING_OVERRIDES.clear()
         return summary
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process CSV file: {str(e)}")
 
 @app.post("/api/load-sample", response_model=CSVUploadSummary)
 def load_sample_dataset():
-    global CUSTOM_DEMAND_DATA
     sample_text = generate_sample_csv_content().encode('utf-8')
     summary, norm_data = parse_energy_csv(sample_text, "nhce_smart_meter_sample.csv")
-    CUSTOM_DEMAND_DATA = norm_data["demand_24h"]
+    dataset_manager.set_uploaded_dataset(summary, norm_data)
+    REMEDIATED_ANOMALIES.clear()
+    BUILDING_OVERRIDES.clear()
     return summary
 
 @app.get("/api/download-sample-csv")
@@ -256,19 +312,34 @@ def download_sample_csv():
         headers={"Content-Disposition": "attachment; filename=nexusiq_sample_energy_data.csv"}
     )
 
+# -------------------------------------------------------------
+# DIGITAL TWIN SUBMETERS
+# -------------------------------------------------------------
 @app.get("/api/campus/buildings", response_model=List[BuildingLoad])
 def get_campus_building_loads():
-    buildings = get_campus_buildings(CURRENT_FACILITY.level)
-    for b in buildings:
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+
+    if active.has_submeters and active.buildings:
+        blds = [b.model_copy() for b in active.buildings]
+    elif active.source_type == "uploaded" and active.buildings:
+        blds = [b.model_copy() for b in active.buildings]
+    else:
+        blds = get_campus_buildings(facility.level)
+
+    for b in blds:
         if b.id in BUILDING_OVERRIDES:
             over = BUILDING_OVERRIDES[b.id]
             b.current_load_kw = over.get("current_load_kw", b.current_load_kw)
             b.operational_status = over.get("operational_status", b.operational_status)
-    return buildings
+
+    return blds
 
 @app.post("/api/buildings/{bld_id}/toggle-shift")
 def toggle_building_load_shift(bld_id: str):
-    buildings = get_campus_buildings(CURRENT_FACILITY.level)
+    active = dataset_manager.active
+    facility = dataset_manager.get_facility_config()
+    buildings = get_campus_building_loads()
     target = next((b for b in buildings if b.id == bld_id), None)
     if not target:
         raise HTTPException(status_code=404, detail="Building not found")

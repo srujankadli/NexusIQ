@@ -32,16 +32,16 @@ export function App() {
   async function loadData() {
     setLoading(true);
     try {
-      const [cfg, dash, fc, opt] = await Promise.all([
+      const [cfgRes, dashRes, fcRes, optRes] = await Promise.allSettled([
         api.getProfile(),
         api.getLiveDashboard(),
         api.getForecast(15),
         api.runOptimization(true),
       ]);
-      setFacilityConfig(cfg);
-      setDashboardData(dash);
-      setForecastData(fc);
-      setOptimizationData(opt);
+      if (cfgRes.status === 'fulfilled') setFacilityConfig(cfgRes.value);
+      if (dashRes.status === 'fulfilled') setDashboardData(dashRes.value);
+      if (fcRes.status === 'fulfilled') setForecastData(fcRes.value);
+      if (optRes.status === 'fulfilled') setOptimizationData(optRes.value);
     } catch (err) {
       console.error('Failed to load platform data:', err);
     } finally {
@@ -55,18 +55,21 @@ export function App() {
 
   async function handleRefreshTelemetry() {
     try {
-      const [dash, fc, opt] = await Promise.all([
+      setLoading(true);
+      const [dashRes, fcRes, optRes] = await Promise.allSettled([
         api.getLiveDashboard(),
         api.getForecast(15),
         api.runOptimization(true),
       ]);
-      setDashboardData(dash);
-      setForecastData(fc);
-      setOptimizationData(opt);
+      if (dashRes.status === 'fulfilled') setDashboardData(dashRes.value);
+      if (fcRes.status === 'fulfilled') setForecastData(fcRes.value);
+      if (optRes.status === 'fulfilled') setOptimizationData(optRes.value);
       setStatusNotification('Live telemetry and energy flow recalculated.');
       setTimeout(() => setStatusNotification(null), 3000);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -76,14 +79,14 @@ export function App() {
       const newConfig = await api.switchLevel(level);
       setFacilityConfig(newConfig);
 
-      const [dash, fc, opt] = await Promise.all([
+      const [dashRes, fcRes, optRes] = await Promise.allSettled([
         api.getLiveDashboard(),
         api.getForecast(15),
         api.runOptimization(true),
       ]);
-      setDashboardData(dash);
-      setForecastData(fc);
-      setOptimizationData(opt);
+      if (dashRes.status === 'fulfilled') setDashboardData(dashRes.value);
+      if (fcRes.status === 'fulfilled') setForecastData(fcRes.value);
+      if (optRes.status === 'fulfilled') setOptimizationData(optRes.value);
 
       const levelLabels = {
         level_1_basic: 'Level 1: Basic (Only Bills / CSV Data, No Solar, No Battery)',
@@ -107,19 +110,55 @@ export function App() {
     setTimeout(() => setStatusNotification(null), 4000);
   }
 
+  async function handleSwitchMode(mode: 'demo' | 'uploaded') {
+    try {
+      setLoading(true);
+      await api.switchDatasetMode(mode);
+      const [cfgRes, dashRes, fcRes, optRes] = await Promise.allSettled([
+        api.getProfile(),
+        api.getLiveDashboard(),
+        api.getForecast(15),
+        api.runOptimization(true),
+      ]);
+      if (cfgRes.status === 'fulfilled') setFacilityConfig(cfgRes.value);
+      if (dashRes.status === 'fulfilled') setDashboardData(dashRes.value);
+      if (fcRes.status === 'fulfilled') setForecastData(fcRes.value);
+      if (optRes.status === 'fulfilled') setOptimizationData(optRes.value);
+      setStatusNotification(
+        mode === 'demo'
+          ? 'Switched to Demo Benchmark Mode (Synthetic NHCE Campus).'
+          : 'Restored active uploaded dataset.'
+      );
+      setTimeout(() => setStatusNotification(null), 5000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleUploadSuccess(summary: CSVUploadSummary) {
+    setLoading(true);
     setStatusNotification(
-      `CSV Ingested: ${summary.total_records} intervals processed. Identified ${summary.identified_wastage_kwh} kWh baseload reduction opportunity.`
+      `Dataset Activated: "${summary.filename}" (${summary.total_records} intervals). Total: ${summary.total_consumption_kwh.toLocaleString()} kWh, Peak: ${summary.peak_recorded_demand_kw} kW.`
     );
-    const [dash, fc, opt] = await Promise.all([
-      api.getLiveDashboard(),
-      api.getForecast(15),
-      api.runOptimization(true),
-    ]);
-    setDashboardData(dash);
-    setForecastData(fc);
-    setOptimizationData(opt);
-    setTimeout(() => setStatusNotification(null), 6000);
+    try {
+      const [cfgRes, dashRes, fcRes, optRes] = await Promise.allSettled([
+        api.getProfile(),
+        api.getLiveDashboard(),
+        api.getForecast(15),
+        api.runOptimization(true),
+      ]);
+      if (cfgRes.status === 'fulfilled') setFacilityConfig(cfgRes.value);
+      if (dashRes.status === 'fulfilled') setDashboardData(dashRes.value);
+      if (fcRes.status === 'fulfilled') setForecastData(fcRes.value);
+      if (optRes.status === 'fulfilled') setOptimizationData(optRes.value);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatusNotification(null), 6000);
+    }
   }
 
   return (
@@ -128,8 +167,10 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         facilityConfig={facilityConfig}
+        activeDataset={dashboardData?.active_dataset || null}
         onSwitchLevel={handleSwitchLevel}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onSwitchMode={handleSwitchMode}
       />
 
       {/* Notification Toast */}
@@ -158,6 +199,7 @@ export function App() {
                 optimizationData={optimizationData}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
                 onRefreshTelemetry={handleRefreshTelemetry}
+                isLoading={loading}
               />
             )}
 

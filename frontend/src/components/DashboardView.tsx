@@ -40,6 +40,7 @@ interface DashboardViewProps {
   optimizationData: OptimizationResponse | null;
   onNavigateToTab: (tab: string) => void;
   onRefreshTelemetry: () => void;
+  isLoading?: boolean;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -48,18 +49,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   optimizationData,
   onNavigateToTab,
   onRefreshTelemetry,
+  isLoading = false,
 }) => {
   const kpis = dashboardData?.kpis;
   const flow = dashboardData?.energy_flow;
   const level = dashboardData?.deployment_level || 'level_3_campus';
 
-  // Prepare 24h demand vs solar chart data
-  const chartData = forecastData?.time_labels.map((label, idx) => ({
-    time: label,
-    'Actual Demand': forecastData.actual_demand_kw[idx],
-    'Forecasted Demand': forecastData.forecast_demand_kw[idx],
-    'Solar Generation': forecastData.solar_forecast_kw[idx],
-  })) || [];
+  // Check if forecast data has valid arrays
+  const hasValidForecast = Boolean(
+    forecastData &&
+    Array.isArray(forecastData.time_labels) &&
+    forecastData.time_labels.length > 0 &&
+    Array.isArray(forecastData.actual_demand_kw) &&
+    Array.isArray(forecastData.forecast_demand_kw) &&
+    Array.isArray(forecastData.solar_forecast_kw)
+  );
+
+  // Prepare 24h demand vs solar chart data with defensive typing and zero/finite checks
+  const chartData = hasValidForecast
+    ? forecastData!.time_labels.map((label, idx) => ({
+        time: label,
+        'Actual Demand': Number.isFinite(forecastData!.actual_demand_kw?.[idx]) ? forecastData!.actual_demand_kw[idx] : 0,
+        'Forecasted Demand': Number.isFinite(forecastData!.forecast_demand_kw?.[idx]) ? forecastData!.forecast_demand_kw[idx] : 0,
+        'Solar Generation': Number.isFinite(forecastData!.solar_forecast_kw?.[idx]) ? forecastData!.solar_forecast_kw[idx] : 0,
+      }))
+    : [];
 
   // Impact comparison data (Baseline 100% vs Optimized %) with full-precision unscaled values
   const impactData = [
@@ -68,48 +82,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       Baseline: 100,
       Optimized: optimizationData && optimizationData.total_cost_baseline_inr > 0
         ? Number(((optimizationData.total_cost_optimized_inr / optimizationData.total_cost_baseline_inr) * 100).toFixed(1))
-        : 98.1,
-      baselineLabel: optimizationData ? `₹${optimizationData.total_cost_baseline_inr.toLocaleString()}` : '₹541,457',
-      optimizedLabel: optimizationData ? `₹${optimizationData.total_cost_optimized_inr.toLocaleString()}` : '₹531,215',
+        : 100,
+      baselineLabel: optimizationData ? `₹${optimizationData.total_cost_baseline_inr.toLocaleString()}` : '--',
+      optimizedLabel: optimizationData ? `₹${optimizationData.total_cost_optimized_inr.toLocaleString()}` : '--',
       savingLabel: optimizationData
         ? `₹${optimizationData.cost_savings_inr.toLocaleString()} saved (-${optimizationData.cost_savings_percent}%)`
-        : '₹10,243 saved (-1.9%)',
+        : 'Evaluating baseline...',
     },
     {
       category: 'Grid Import',
       Baseline: 100,
       Optimized: optimizationData && optimizationData.metrics_summary[1]?.baseline_value > 0
         ? Number(((optimizationData.metrics_summary[1].optimized_value / optimizationData.metrics_summary[1].baseline_value) * 100).toFixed(1))
-        : 96.6,
+        : 100,
       baselineLabel: optimizationData && optimizationData.metrics_summary[1]
         ? `${optimizationData.metrics_summary[1].baseline_value.toLocaleString()} kWh`
-        : '36,500 kWh',
+        : '-- kWh',
       optimizedLabel: optimizationData && optimizationData.metrics_summary[1]
         ? `${optimizationData.metrics_summary[1].optimized_value.toLocaleString()} kWh`
-        : '35,265 kWh',
+        : '-- kWh',
       savingLabel: optimizationData
         ? `${optimizationData.grid_reduction_kwh.toLocaleString()} kWh displaced`
-        : '1,235 kWh displaced',
+        : 'Evaluating grid dispatch...',
     },
     {
       category: 'CO2 Emissions',
       Baseline: 100,
       Optimized: optimizationData && optimizationData.metrics_summary[3]?.baseline_value > 0
         ? Number(((optimizationData.metrics_summary[3].optimized_value / optimizationData.metrics_summary[3].baseline_value) * 100).toFixed(1))
-        : 96.6,
+        : 100,
       baselineLabel: optimizationData && optimizationData.metrics_summary[3]
         ? `${optimizationData.metrics_summary[3].baseline_value.toFixed(1)} tons`
-        : '26.3 tons',
+        : '-- tons',
       optimizedLabel: optimizationData && optimizationData.metrics_summary[3]
         ? `${optimizationData.metrics_summary[3].optimized_value.toFixed(1)} tons`
-        : '25.4 tons',
+        : '-- tons',
       savingLabel: optimizationData
         ? `${optimizationData.co2_avoided_tons.toFixed(1)} tons avoided`
-        : '0.9 tons avoided',
+        : 'Calculating CEA emissions...',
     },
   ];
 
   const activeRec = dashboardData?.active_recommendation || optimizationData?.recommendations[0];
+  const activeDataset = dashboardData?.active_dataset;
 
   return (
     <div className="space-y-6 pb-12">
@@ -124,7 +139,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 Live Energy Orchestration
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
-                {dashboardData?.facility_name || 'NHCE Campus'}
+                {activeDataset ? `Active Dataset: ${activeDataset.filename}` : (dashboardData?.facility_name || 'NHCE Campus')}
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30 uppercase tracking-wide">
                 {level === 'level_1_basic' ? 'Level 1: Basic (Bill/CSV)' : level === 'level_2_solar' ? 'Level 2: Solar PV' : 'Level 3: Microgrid'}
@@ -134,8 +149,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Nexus<span className="text-emerald-400">IQ</span> Energy Management & Optimization
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
-              Universally coordinates electricity demand, renewable generation, battery storage, and grid interaction
-              to maximize efficiency and achieve verifiable carbon reductions.
+              {activeDataset?.source_type === 'uploaded'
+                ? `Actively orchestrating ingested dataset "${activeDataset.filename}" with ${activeDataset.total_records} intervals. Single Source of Truth enforced across all modules.`
+                : 'Universally coordinates electricity demand, renewable generation, battery storage, and grid interaction to maximize efficiency.'}
             </p>
           </div>
 
@@ -171,11 +187,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `${kpis.total_consumption_kwh.toLocaleString()} kWh` : '4,820 kWh'}
+              {kpis ? `${kpis.total_consumption_kwh.toLocaleString()} kWh` : (isLoading ? '...' : '-- kWh')}
             </p>
             <p className="text-[11px] text-blue-400 font-medium flex items-center gap-0.5 mt-1">
               <TrendingUp className="w-3 h-3" />
-              {kpis?.total_consumption_trend || '+12% vs last week'}
+              {kpis?.total_consumption_trend || (isLoading ? 'Updating...' : 'Verified Telemetry')}
             </p>
           </div>
         </div>
@@ -191,7 +207,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
               {level !== 'level_1_basic'
-                ? (kpis ? `${kpis.solar_generation_kwh.toLocaleString()} kWh` : '2,140 kWh')
+                ? (kpis ? `${kpis.solar_generation_kwh.toLocaleString()} kWh` : (isLoading ? '...' : '-- kWh'))
                 : '0 kWh'}
             </p>
             <p className="text-[11px] text-amber-400 font-medium flex items-center gap-0.5 mt-1">
@@ -218,14 +234,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
               {level === 'level_3_campus'
-                ? (kpis ? `${kpis.battery_soc_percent}%` : '76%')
+                ? (kpis ? `${kpis.battery_soc_percent}%` : (isLoading ? '...' : '--%'))
                 : 'N/A'}
             </p>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 mt-1">
               {level === 'level_3_campus' ? (
                 <>
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {kpis?.battery_status || 'Charging'}
+                  {kpis?.battery_status || 'Telemetry Active'}
                 </>
               ) : (
                 <span className="text-slate-500">No Storage Installed</span>
@@ -244,11 +260,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `${kpis.grid_consumption_kwh.toLocaleString()} kWh` : '1,980 kWh'}
+              {kpis ? `${kpis.grid_consumption_kwh.toLocaleString()} kWh` : (isLoading ? '...' : '-- kWh')}
             </p>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-0.5 mt-1">
               <TrendingDown className="w-3 h-3" />
-              {kpis?.grid_consumption_trend || '-20% vs baseline'}
+              {kpis?.grid_consumption_trend || (isLoading ? 'Calculating...' : 'Grid Dispatch')}
             </p>
           </div>
         </div>
@@ -263,11 +279,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `₹${kpis.estimated_cost_today_inr.toLocaleString()}` : '₹8,400'}
+              {kpis ? `₹${kpis.estimated_cost_today_inr.toLocaleString()}` : (isLoading ? '...' : '₹--')}
             </p>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-0.5 mt-1">
               <TrendingDown className="w-3 h-3" />
-              {kpis?.estimated_cost_trend || '-22% vs baseline'}
+              {kpis?.estimated_cost_trend || (isLoading ? 'Calculating...' : 'Tariff Schedule')}
             </p>
           </div>
         </div>
@@ -282,11 +298,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-3">
             <p className="text-xl font-bold text-white">
-              {kpis ? `${kpis.co2_emissions_avoided_tons} tons` : '1.2 tons'}
+              {kpis ? `${kpis.co2_emissions_avoided_tons} tons` : (isLoading ? '...' : '-- tons')}
             </p>
             <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-0.5 mt-1">
               <TrendingUp className="w-3 h-3" />
-              {kpis?.co2_trend || '+30% vs baseline'}
+              {kpis?.co2_trend || (isLoading ? 'Calculating...' : 'Grid Carbon Factor')}
             </p>
           </div>
         </div>
@@ -314,58 +330,97 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </button>
             </div>
 
-            <div className="h-72 w-full mt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorDemand" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
-                    </linearGradient>
-                    <linearGradient id="colorSolar" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.5} />
-                      <stop offset="95%" stopColor="#eab308" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 11 }} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderColor: '#334155',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                      color: '#f8fafc'
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-                  <Area
-                    type="monotone"
-                    dataKey="Actual Demand"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorDemand)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Forecasted Demand"
-                    stroke="#60a5fa"
-                    strokeDasharray="4 4"
-                    strokeWidth={1.5}
-                    fill="none"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Solar Generation"
-                    stroke="#eab308"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorSolar)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="h-72 w-full mt-2 min-h-[288px] min-w-0">
+              {isLoading || !forecastData ? (
+                <div className="h-full w-full flex flex-col items-center justify-center space-y-3 bg-slate-950/40 rounded-xl border border-slate-800/60 p-6 text-center">
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+                  <p className="text-xs text-slate-300 font-medium">Synchronizing 24-Hour AI Demand & Solar Predictions...</p>
+                  <p className="text-[11px] text-slate-500">Retrieving Ridge Regression & Sandia PV modeling curves</p>
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="h-full w-full flex flex-col items-center justify-center space-y-2 bg-slate-950/40 rounded-xl border border-slate-800/60 p-6 text-center">
+                  <AlertCircle className="w-7 h-7 text-amber-400" />
+                  <p className="text-xs text-slate-300 font-semibold">No Forecast Telemetry Available</p>
+                  <p className="text-[11px] text-slate-500 max-w-sm">
+                    No 24-hour predictive intervals found. Check backend connection or refresh data.
+                  </p>
+                  <button
+                    onClick={onRefreshTelemetry}
+                    className="mt-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition cursor-pointer"
+                  >
+                    Retry Refresh
+                  </button>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorDemand" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                      </linearGradient>
+                      <linearGradient id="colorSolar" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.45} />
+                        <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis
+                      dataKey="time"
+                      stroke="#64748b"
+                      tick={{ fontSize: 11 }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(val) => `${val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val}`}
+                      unit=" kW"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#0f172a',
+                        borderColor: '#334155',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        color: '#f8fafc'
+                      }}
+                      formatter={(value: any, name: any) => [`${Number(value).toLocaleString()} kW`, name]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                    <Area
+                      type="monotone"
+                      dataKey="Actual Demand"
+                      name="Actual Demand"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorDemand)"
+                      isAnimationActive={false}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Forecasted Demand"
+                      name="Forecasted Demand"
+                      stroke="#93c5fd"
+                      strokeDasharray="4 4"
+                      strokeWidth={2}
+                      fill="none"
+                      isAnimationActive={false}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Solar Generation"
+                      name="Solar Generation"
+                      stroke="#f59e0b"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#colorSolar)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
@@ -415,7 +470,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <p className="text-xs font-semibold text-slate-300">Solar PV</p>
                   <p className="text-lg font-extrabold text-amber-400">
                     {level !== 'level_1_basic'
-                      ? (flow ? `${(flow.solar_generation_kw / 1000).toFixed(1)} MW` : '2.1 MW')
+                      ? (flow ? `${(flow.solar_generation_kw / 1000).toFixed(1)} MW` : (isLoading ? '...' : '-- MW'))
                       : '0.0 MW'}
                   </p>
                   <span className="text-[10px] text-amber-300">
@@ -432,7 +487,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div>
                   <p className="text-xs font-semibold text-slate-300">Grid Import</p>
                   <p className="text-lg font-extrabold text-cyan-400">
-                    {flow ? `${(flow.grid_consumption_kw / 1000).toFixed(1)} MW` : '2.0 MW'}
+                    {flow ? `${(flow.grid_consumption_kw / 1000).toFixed(1)} MW` : (isLoading ? '...' : '-- MW')}
                   </p>
                 </div>
               </div>
@@ -459,12 +514,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <p className="text-xs font-semibold text-slate-300">Battery BESS</p>
                   <p className="text-lg font-extrabold text-emerald-400">
                     {level === 'level_3_campus'
-                      ? (flow ? `${Math.abs(flow.battery_flow_kw / 1000).toFixed(1)} MW` : '0.8 MW')
+                      ? (flow ? `${Math.abs(flow.battery_flow_kw / 1000).toFixed(1)} MW` : (isLoading ? '...' : '-- MW'))
                       : '0.0 MW'}
                   </p>
                   <span className="text-[10px] text-emerald-300">
                     {level === 'level_3_campus'
-                      ? (flow && flow.battery_flow_kw < 0 ? 'Charging (Surplus)' : 'Discharging')
+                      ? (flow && flow.battery_flow_kw < 0 ? 'Charging (Surplus)' : (flow && flow.battery_flow_kw > 0 ? 'Discharging' : 'Standby'))
                       : 'No Storage Installed'}
                   </span>
                 </div>
@@ -478,7 +533,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div>
                   <p className="text-xs font-semibold text-slate-300">Campus Demand</p>
                   <p className="text-lg font-extrabold text-indigo-400">
-                    {flow ? `${(flow.campus_demand_kw / 1000).toFixed(1)} MW` : '4.8 MW'}
+                    {flow ? `${(flow.campus_demand_kw / 1000).toFixed(1)} MW` : (isLoading ? '...' : '-- MW')}
                   </p>
                   <span className="text-[10px] text-indigo-300">5 Buildings Submetered</span>
                 </div>
@@ -488,7 +543,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400">
             <span>Conservation: P_grid + P_solar + P_bat = P_campus</span>
-            <span className="text-emerald-400 font-medium">Equilibrium Verified (0.0 kW Delta)</span>
+            <span className={flow?.power_balance_verified ? 'text-emerald-400 font-medium' : 'text-amber-400 font-medium'}>
+              {flow
+                ? flow.power_balance_verified
+                  ? `Equilibrium Verified (${Math.abs(flow.balance_delta_kw || 0.0).toFixed(1)} kW Delta)`
+                  : `Imbalance Detected (${(flow.balance_delta_kw || 0.0).toFixed(1)} kW Delta)`
+                : (isLoading ? 'Verifying Equilibrium...' : 'Equilibrium Unverified')}
+            </span>
           </div>
         </div>
       </div>

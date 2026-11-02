@@ -12,24 +12,29 @@ import {
   Sparkles,
   Settings,
   Menu,
-  X
+  X,
+  Database
 } from 'lucide-react';
-import { DeploymentLevel, FacilityConfig } from '../types';
+import { DeploymentLevel, FacilityConfig, ActiveDatasetStatus } from '../types';
 
 interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   facilityConfig: FacilityConfig | null;
+  activeDataset?: ActiveDatasetStatus | null;
   onSwitchLevel: (level: DeploymentLevel) => void;
   onOpenSettings: () => void;
+  onSwitchMode?: (mode: 'demo' | 'uploaded') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   facilityConfig,
+  activeDataset,
   onSwitchLevel,
   onOpenSettings,
+  onSwitchMode,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const currentLevel = facilityConfig?.level || 'level_3_campus';
@@ -98,8 +103,41 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          {/* Right Controls: Level Switcher & Settings */}
+          {/* Right Controls: Active Dataset Indicator, Level Switcher & Settings */}
           <div className="flex items-center space-x-2.5">
+            {/* Active Dataset Indicator Badge */}
+            <div className="hidden xl:flex items-center space-x-1.5 bg-slate-950/70 px-2.5 py-1 rounded-lg border border-slate-800 text-xs">
+              {activeDataset?.source_type === 'uploaded' ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-emerald-300 font-medium truncate max-w-[140px]" title={activeDataset.filename}>
+                    {activeDataset.filename}
+                  </span>
+                  {onSwitchMode && (
+                    <button
+                      onClick={() => onSwitchMode('demo')}
+                      className="ml-1 text-[10px] text-slate-400 hover:text-amber-300 transition underline cursor-pointer"
+                      title="Switch back to synthetic benchmark"
+                    >
+                      Demo
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  <span className="text-blue-300 font-medium">Demo Benchmark</span>
+                  <button
+                    onClick={() => setActiveTab('data-upload')}
+                    className="ml-1 text-[10px] text-slate-400 hover:text-emerald-300 transition underline cursor-pointer"
+                    title="Upload CSV to replace demo data"
+                  >
+                    Upload CSV
+                  </button>
+                </>
+              )}
+            </div>
+
             {/* Deployment Level Selector */}
             <div className="flex items-center bg-slate-800/80 rounded-lg p-0.5 border border-slate-700/60">
               <button
@@ -154,17 +192,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
-
-            {/* Institution Badge */}
-            <div className="hidden lg:flex flex-col text-right pl-2 border-l border-slate-800">
-              <span className="text-[11px] font-semibold text-slate-300">
-                NHCE | EcoNexus
-              </span>
-              <span className="text-[10px] text-emerald-400 flex items-center justify-end gap-1">
-                <CheckCircle2 className="w-2.5 h-2.5" />
-                Ideathon 2026
-              </span>
-            </div>
           </div>
         </div>
       </div>

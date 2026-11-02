@@ -4,14 +4,17 @@ Write-Host " NexusIQ - AI-Powered Energy Management Platform " -ForegroundColor 
 Write-Host " Predict. Optimize. Sustain. | Ideathon 2026 " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
+$port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8001" }
+
 # Start Backend in background process or separate job
 $backendScript = Join-Path $PSScriptRoot "start_backend.py"
-Write-Host "`n[1/2] Starting Python FastAPI Backend on http://127.0.0.1:8000..." -ForegroundColor Yellow
-$backendJob = Start-Process -FilePath "python" -ArgumentList $backendScript -PassThru -NoNewWindow
+Write-Host "`n[1/2] Starting Python FastAPI Backend on http://127.0.0.1:$port..." -ForegroundColor Yellow
+$backendJob = Start-Process -FilePath "python" -ArgumentList "$backendScript $port" -PassThru -NoNewWindow
 
 Start-Sleep -Seconds 2
 
 Write-Host "[2/2] Starting Frontend Vite Server on http://localhost:3000..." -ForegroundColor Yellow
 Set-Location (Join-Path $PSScriptRoot "frontend")
+$env:BACKEND_PORT = $port
 npm run dev -- --host
 
